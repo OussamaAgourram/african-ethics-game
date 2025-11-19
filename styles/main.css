@@ -1,0 +1,60 @@
+/* Custom CSS for African Ethics Game */
+
+/* Import a readable, professional font */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Playfair+Display:wght@700&display=swap');
+
+/* Main App Styling */
+[data-testid="stAppViewContainer"] > .main {
+    background-color: #F8F7F3; /* Light Earthy Background */
+    font-family: 'Roboto', sans-serif;
+}
+
+/* Customizing the Title */
+h1 {
+    font-family: 'Playfair Display', serif;
+    color: #4B2810; /* Dark Brown */
+    border-bottom: 3px solid #E5A335; /* Gold Accent Line */
+    padding-bottom: 10px;
+}
+
+/* Sidebar Styling (for scores) */
+[data-testid="stSidebar"] {
+    background-color: #E5A335; /* Gold/Ochre Sidebar */
+    color: #4B2810;
+}
+[data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
+    color: #4B2810;
+}
+[data-testid="stMetricValue"] {
+    color: #FFFFFF !important; /* White Score Text */
+    font-size: 2em;
+}
+
+/* Customizing Info (Yoruba Advice - Fire/Ritual theme) */
+div[data-testid="stAlert"] [role="alert"] {
+    background-color: #FFFAF0 !important;
+    border-left: 5px solid #E95420 !important; /* Orange/Fire Red Accent */
+    color: #4B2810 !important;
+}
+
+/* Customizing Success (Igbo Advice - Earth/Community theme) */
+div[data-testid="stSuccess"] [role="alert"] {
+    background-color: #F8F8FF !important;
+    border-left: 5px solid #228B22 !important; /* Forest Green Accent */
+    color: #4B2810 !important;
+}
+
+/* Button Styling */
+.stButton>button {
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-weight: bold;
+    color: white;
+    background-color: #4B2810; /* Dark Brown */
+    border: 2px solid #E5A335;
+    transition: all 0.2s ease;
+}
+.stButton>button:hover {
+    background-color: #6C4228;
+    border-color: #FFC358;
+}
