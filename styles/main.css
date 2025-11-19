@@ -3,48 +3,48 @@
 /* Import a readable, professional font */
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Playfair+Display:wght@700&display=swap');
 
-/* Main App Styling */
+/* --- GLOBAL & ROOM STYLING --- */
+
+/* Main App View - to give a 'room' feel */
 [data-testid="stAppViewContainer"] > .main {
-    background-color: #F8F7F3; /* Light Earthy Background */
+    /* Soft gradient for earthy depth */
+    background: linear-gradient(to bottom right, #F8F7F3, #E0DED7); 
     font-family: 'Roboto', sans-serif;
+    padding: 30px;
 }
 
-/* Customizing the Title */
+/* Customizing the Title to be more inviting */
 h1 {
     font-family: 'Playfair Display', serif;
     color: #4B2810; /* Dark Brown */
+    text-align: center; 
+    margin-bottom: 20px;
+    padding-bottom: 15px;
     border-bottom: 3px solid #E5A335; /* Gold Accent Line */
-    padding-bottom: 10px;
+}
+
+h3 {
+    text-align: center;
+    color: #6C4228;
 }
 
 /* Sidebar Styling (for scores) */
 [data-testid="stSidebar"] {
-    background-color: #E5A335; /* Gold/Ochre Sidebar */
-    color: #4B2810;
+    background-color: #5A3A1F; /* Darker, richer brown for the "furniture" */
+    color: #FFDAB9; 
+    border-right: 2px solid #E5A335;
 }
 [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-    color: #4B2810;
+    color: #FFDAB9;
 }
 [data-testid="stMetricValue"] {
-    color: #FFFFFF !important; /* White Score Text */
+    color: #FFFFFF !important; 
     font-size: 2em;
 }
 
-/* Customizing Info (Yoruba Advice - Fire/Ritual theme) */
-div[data-testid="stAlert"] [role="alert"] {
-    background-color: #FFFAF0 !important;
-    border-left: 5px solid #E95420 !important; /* Orange/Fire Red Accent */
-    color: #4B2810 !important;
-}
+/* --- BUTTON & METRIC STYLING --- */
 
-/* Customizing Success (Igbo Advice - Earth/Community theme) */
-div[data-testid="stSuccess"] [role="alert"] {
-    background-color: #F8F8FF !important;
-    border-left: 5px solid #228B22 !important; /* Forest Green Accent */
-    color: #4B2810 !important;
-}
-
-/* Button Styling */
+/* Button Styling (Main Body) */
 .stButton>button {
     border-radius: 8px;
     padding: 10px 20px;
@@ -57,4 +57,66 @@ div[data-testid="stSuccess"] [role="alert"] {
 .stButton>button:hover {
     background-color: #6C4228;
     border-color: #FFC358;
+}
+
+/* --- CHAT BUBBLE STYLING (The Conversational Look) --- */
+
+/* Base Chat Message (ensure icons/avatars are visible) */
+.stChatMessage div[data-testid="stChatAvatar"] {
+    font-size: 1.5em; 
+}
+
+/* Style for the Yoruba Elder's Message (Fire/Ritual) */
+.stChatMessage[data-testid^="stChatMessage-Yoruba"] {
+    background-color: #FFFAF0; /* Off-White */
+    border-left: 5px solid #E95420; /* Fire Red Accent */
+    margin-right: 20%; /* Push right */
+    border-radius: 15px 5px 15px 15px;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+    transition: all 0.5s ease-in-out; /* For dynamic effects */
+}
+
+/* Style for the Igbo Elder's Message (Earth/Community) */
+.stChatMessage[data-testid^="stChatMessage-Igbo"] {
+    background-color: #F8F8FF; /* Light Lavender */
+    border-left: 5px solid #228B22; /* Forest Green Accent */
+    margin-left: 20%; /* Push left */
+    border-radius: 5px 15px 15px 15px;
+    box-shadow: -2px 2px 5px rgba(0,0,0,0.1);
+    transition: all 0.5s ease-in-out; /* For dynamic effects */
+}
+
+/* Style for the User's Message (Neutral/White background) */
+.stChatMessage[data-testid^="stChatMessage-user"] {
+    background-color: #F0F2F6; /* Light gray for user input */
+    border: 1px solid #D3D3D3;
+    border-radius: 15px;
+    margin-left: 10%;
+    margin-right: 10%;
+    box-shadow: 0px 0px 3px rgba(0,0,0,0.05);
+}
+
+/* --- DYNAMIC VISUAL EFFECTS (Upset & Disappearing) --- */
+
+/* For an elder who is upset (fading slightly, color change) */
+.stChatMessage.upset-elder {
+    opacity: 0.7; /* Slightly fade */
+    filter: grayscale(40%); /* Desaturate */
+    transform: scale(0.98); /* Slightly shrink */
+    /* Add a slight red tint to emphasize displeasure */
+    background-color: #FFECEC !important; 
+    border-color: #AA4040 !important;
+}
+
+/* For an elder who disappears (fully faded, moved away) */
+.stChatMessage.disappeared-elder {
+    opacity: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 0 !important;
+    font-size: 0 !important;
+    transform: translateX(-100vw); /* Slide completely off-screen */
+    overflow: hidden; 
+    visibility: hidden; /* Ensure it's not clickable */
 }

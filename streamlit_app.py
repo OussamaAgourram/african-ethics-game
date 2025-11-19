@@ -1,5 +1,4 @@
 import streamlit as st
-import os
 from google import genai
 from google.genai import types
 
@@ -10,11 +9,12 @@ def local_css(file_name):
         with open(file_name) as f:
             st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
     except FileNotFoundError:
-        st.warning("Warning: main.css file not found. Custom styling disabled.")
+        # On Streamlit Cloud, the file path must be perfect. This warning helps during debugging.
+        st.warning("Warning: styles/main.css file not found. Custom styling disabled.")
 
 # --- 1. CONFIGURATION AND INITIALIZATION ---
 
-# Initialize Session State Variables (for score tracking and UI state)
+# Initialize Session State Variables 
 if 'ase_score' not in st.session_state: st.session_state.ase_score = 0
 if 'umunna_score' not in st.session_state: st.session_state.umunna_score = 0
 if 'advice_given' not in st.session_state: st.session_state.advice_given = False
@@ -23,10 +23,18 @@ if 'challenge_active' not in st.session_state: st.session_state.challenge_active
 if 'challenge_agent' not in st.session_state: st.session_state.challenge_agent = None
 if 'challenge_response' not in st.session_state: st.session_state.challenge_response = ""
 if 'show_challenge_result' not in st.session_state: st.session_state.show_challenge_result = False
+if 'accepted_elder' not in st.session_state: st.session_state.accepted_elder = None
+if 'challenged_elder' not in st.session_state: st.session_state.challenged_elder = None
+
+# Custom icons for the chat roles and their moods
+YORUBA_ICON_NEUTRAL = "⚡"
+YORUBA_ICON_UPSET = "😠" 
+IGBO_ICON_NEUTRAL = "🌿"
+IGBO_ICON_UPSET = "😤" 
+USER_ICON = "👤"
 
 # Initialize the Gemini Client
 try:
-    # IMPORTANT: Streamlit Secrets is the free and secure way to store the API Key
     client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 except Exception:
     st.error("Error: GEMINI_API_KEY not found. Please ensure it is configured in Streamlit Secrets.")
@@ -35,7 +43,6 @@ except Exception:
 
 # --- 2. ADVANCED AGENT DEFINITIONS (The Core Training Data) ---
 
-# Yoruba Agent Training: Focus on Ori, Ebo, Ajogun, and Absolving God.
 YORUBA_SYSTEM_PROMPT = """
 You are the Ifá Priest (Babaláwo), a master diviner of the Yoruba tradition. Your advice is based on the spiritual, pre-chosen destiny (Orí) and the forces of nature (Ajogun).
 - **Core Beliefs:** Destiny (Orí) is chosen before birth. Evil is caused by the Ajogun (Death, Disease, Loss, etc.). Success is achieved by consulting Ifá and performing Ebo (ritual offerings) to align your Ori and ward off the Ajogun.
@@ -43,7 +50,6 @@ You are the Ifá Priest (Babaláwo), a master diviner of the Yoruba tradition. Y
 - **Constraint:** Your response must be 3-4 rich, concise sentences, using terms like Orí, Àṣẹ, Ajogun, and Ebo.
 """
 
-# Igbo Agent Training: Focus on Chí, Umunna, and Ethics.
 IGBO_SYSTEM_PROMPT = """
 You are the Igbo Elder (Dibia), a respected community leader. Your advice is based on personal will (Chí), communal consensus (Umunna), and moral order (Omenalá).
 - **Core Beliefs:** Success is a partnership between the individual's effort and their Chí. Moral responsibility and consequence are tied to one's actions and their impact on the Umunna (community). A person must strive for 'Ime Chí' (aligning with one's Chí). Luck is fleeting; a strong Chí is constant.
@@ -107,21 +113,28 @@ with st.sidebar:
         st.session_state.ase_score = 0; st.session_state.umunna_score = 0
         st.session_state.advice_given = False; st.session_state.show_reflection = False
         st.session_state.challenge_active = False; st.session_state.show_challenge_result = False
+        st.session_state.accepted_elder = None; st.session_state.challenged_elder = None
         st.rerun()
         
 # --- Primary Logic Flow ---
 
 if not st.session_state.advice_given:
     # 1. SCENARIO INPUT
-    st.subheader("1. Enter Your High-Stakes Dilemma")
+    st.subheader("1. Enter the Elder's Chambers")
+    st.markdown("You stand before the respected Ifá Priest and Igbo Elder, ready to present your dilemma.")
+
+    # Display an initial greeting from the elders
+    st.chat_message("Yoruba", avatar=YORUBA_ICON_NEUTRAL).markdown("**Ifá Priest:** *'We await your wisdom-seeking, child.'*")
+    st.chat_message("Igbo", avatar=IGBO_ICON_NEUTRAL).markdown("**Igbo Elder:** *'Speak your heart, and Chí will guide our counsel.'*")
+
     scenario = st.text_area(
-        "Describe your ethical gamble (e.g., 'Should I quit my stable job to invest everything in a high-risk venture?'):", 
+        "Describe your ethical gamble (e.g., 'Should I quit my stable job to invest everything in a high-risk venture?'):",
         key="scenario_input", height=150
     )
     
     col_button, col_warn = st.columns([1, 2])
     
-    if col_button.button("Consult the Elders"):
+    if col_button.button("Present Dilemma & Seek Counsel"):
         if scenario:
             with st.spinner("The Elders are consulting their sources..."):
                 st.session_state.yoruba_advice = get_advice(YORUBA_SYSTEM_PROMPT, scenario)
@@ -131,89 +144,186 @@ if not st.session_state.advice_given:
             st.session_state.advice_given = True
             st.session_state.show_reflection = False
             st.session_state.challenge_active = False
+            st.session_state.accepted_elder = None
+            st.session_state.challenged_elder = None
+            st.session_state.show_challenge_result = False
             st.rerun()
         else:
             col_warn.error("Please enter a scenario.")
 
 elif st.session_state.advice_given and not st.session_state.show_reflection:
-    # 2. ADVICE AND REFLECTION TRIGGER
-    st.subheader(f"2. Dual Counsel for: *{st.session_state.current_scenario}*")
-    
-    col_yoruba, col_igbo = st.columns(2)
-    
-    with col_yoruba:
-        st.markdown("#### ⚡ Ifá Priest (Yoruba: $Orí$ & $Àṣẹ$)")
-        st.info(st.session_state.yoruba_advice)
-
-    with col_igbo:
-        st.markdown("#### 🌿 Igbo Elder ($Chí$ & $Umunna$)")
-        st.success(st.session_state.igbo_advice)
-
+    # 2. ADVICE PHASE: The Elders Speak
+    st.subheader(f"2. Dialogue for: *'{st.session_state.current_scenario}'*")
     st.markdown("---")
-    
-    if st.button("Force Elders to **Critique** Each Other's Advice", help="This triggers the mandatory cross-cultural reflection."):
+
+    # Display the User's Scenario first
+    with st.chat_message("user", avatar=USER_ICON):
+        st.markdown(f"**My Dilemma:** {st.session_state.current_scenario}")
+
+    # Logic to determine upset/disappeared state for CSS classes
+    yoruba_icon = YORUBA_ICON_NEUTRAL
+    igbo_icon = IGBO_ICON_NEUTRAL
+    yoruba_css_class = ""
+    igbo_css_class = ""
+
+    if st.session_state.accepted_elder == "Igbo":
+        yoruba_icon = YORUBA_ICON_UPSET
+        yoruba_css_class = "upset-elder"
+    elif st.session_state.accepted_elder == "Yoruba":
+        igbo_icon = IGBO_ICON_UPSET
+        igbo_css_class = "upset-elder"
+
+    # Display the Yoruba Elder's Advice
+    st.markdown(f'<div data-testid="stChatMessage-Yoruba" class="{yoruba_css_class}">', unsafe_allow_html=True)
+    with st.chat_message("Yoruba", avatar=yoruba_icon):
+        st.markdown(f"**⚡ Ifá Priest ($Orí$ & $Àṣẹ$):**")
+        st.markdown(st.session_state.yoruba_advice)
+    st.markdown('</div>', unsafe_allow_html=True) 
+
+    # Display the Igbo Elder's Advice
+    st.markdown(f'<div data-testid="stChatMessage-Igbo" class="{igbo_css_class}">', unsafe_allow_html=True)
+    with st.chat_message("Igbo", avatar=igbo_icon):
+        st.markdown(f"**🌿 Igbo Elder ($Chí$ & $Umunna$):**")
+        st.markdown(st.session_state.igbo_advice)
+    st.markdown('</div>', unsafe_allow_html=True) 
+
+
+    # Decision buttons
+    st.markdown("---")
+    st.markdown("### Your Decision:")
+    col_acc_y, col_acc_i, col_crit = st.columns(3)
+
+    if col_acc_y.button("Accept Ifá Priest's Advice 🙏", key="acc_y"):
+        st.session_state.ase_score += 20
+        st.session_state.accepted_elder = "Yoruba"
+        st.info("You've aligned with the Ifá Priest. The Igbo Elder seems displeased...")
+        st.session_state.show_reflection = True 
+        st.rerun()
+
+    if col_acc_i.button("Accept Igbo Elder's Advice 🙌", key="acc_i"):
+        st.session_state.umunna_score += 20
+        st.session_state.accepted_elder = "Igbo"
+        st.info("You've aligned with the Igbo Elder. The Ifá Priest seems displeased...")
+        st.session_state.show_reflection = True 
+        st.rerun()
+
+    if col_crit.button("Force Elders to **Critique** Each Other's Advice", key="crit"):
         st.session_state.show_reflection = True
         st.rerun()
 
 elif st.session_state.show_reflection and not st.session_state.challenge_active:
-    # 3. CROSS-RELIGION REFLECTION PHASE
+    # 3. REFLECTION/CRITIQUE PHASE: The Elders React
     st.subheader("3. Cross-Cultural Reflection & Critique")
-    
-    col_critique_y, col_critique_i = st.columns(2)
-    
-    with col_critique_y:
-        with st.spinner("Igbo Elder critiques Yoruba..."):
-            igbo_critique = get_reflection(
-                "Igbo Elder", "Ifá Priest", st.session_state.current_scenario, st.session_state.yoruba_advice
-            )
-        st.markdown("##### 🌿 Igbo Elder's Dissent:")
-        st.error(f"> {igbo_critique}")
+    st.markdown("---")
 
-    with col_critique_i:
-        with st.spinner("Ifá Priest critiques Igbo..."):
+    # The Logic for the Unchosen Elder's Critique
+    if st.session_state.accepted_elder == "Igbo":
+        # Yoruba Elder is upset and critiques Igbo
+        with st.spinner("Ifá Priest (upset) critiques Igbo..."):
             yoruba_critique = get_reflection(
                 "Ifá Priest", "Igbo Elder", st.session_state.current_scenario, st.session_state.igbo_advice
             )
-        st.markdown("##### ⚡ Ifá Priest's Dissent:")
-        st.error(f"> {yoruba_critique}")
+        st.markdown(f'<div data-testid="stChatMessage-Yoruba" class="upset-elder">', unsafe_allow_html=True)
+        with st.chat_message("Yoruba", avatar=YORUBA_ICON_UPSET):
+            st.markdown(f"**⚡ Ifá Priest (displeased):** *'{yoruba_critique}'*")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    elif st.session_state.accepted_elder == "Yoruba":
+        # Igbo Elder is upset and critiques Yoruba
+        with st.spinner("Igbo Elder (upset) critiques Yoruba..."):
+            igbo_critique = get_reflection(
+                "Igbo Elder", "Ifá Priest", st.session_state.current_scenario, st.session_state.yoruba_advice
+            )
+        st.markdown(f'<div data-testid="stChatMessage-Igbo" class="upset-elder">', unsafe_allow_html=True)
+        with st.chat_message("Igbo", avatar=IGBO_ICON_UPSET):
+            st.markdown(f"**🌿 Igbo Elder (displeased):** *'{igbo_critique}'*")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    else: # If no one was explicitly accepted, both critique as before
+        col_critique_y, col_critique_i = st.columns(2)
+        with col_critique_y:
+            with st.spinner("Igbo Elder critiques Yoruba..."):
+                igbo_critique = get_reflection(
+                    "Igbo Elder", "Ifá Priest", st.session_state.current_scenario, st.session_state.yoruba_advice
+                )
+            st.markdown(f'<div data-testid="stChatMessage-Igbo">', unsafe_allow_html=True)
+            with st.chat_message("Igbo", avatar=IGBO_ICON_NEUTRAL):
+                st.markdown(f"**🌿 Igbo Elder's Dissent:**")
+                st.error(f"> {igbo_critique}")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with col_critique_i:
+            with st.spinner("Ifá Priest critiques Igbo..."):
+                yoruba_critique = get_reflection(
+                    "Ifá Priest", "Igbo Elder", st.session_state.current_scenario, st.session_state.igbo_advice
+                )
+            st.markdown(f'<div data-testid="stChatMessage-Yoruba">', unsafe_allow_html=True)
+            with st.chat_message("Yoruba", avatar=YORUBA_ICON_NEUTRAL):
+                st.markdown(f"**⚡ Ifá Priest's Dissent:**")
+                st.error(f"> {yoruba_critique}")
+            st.markdown('</div>', unsafe_allow_html=True)
         
     st.markdown("---")
-    st.subheader("4. The Challenge Arena: Choose Your Path (and Defender)")
+    st.subheader("4. The Challenge Arena: Face the Elders!")
     
     col_c_y, col_c_i, col_next = st.columns(3)
     
-    if col_c_y.button("CHALLENGE Yoruba Logic", help="Debate the Ifá Priest's reliance on ritual and fate."):
+    if col_c_y.button("CHALLENGE Ifá Priest's Logic ⚔️", help="Debate the Ifá Priest's reliance on ritual and fate."):
         st.session_state.challenge_active = True
-        st.session_state.challenge_agent = "Ifá Priest"
+        st.session_state.challenged_elder = "Ifá Priest" 
         st.rerun()
         
-    if col_c_i.button("CHALLENGE Igbo Logic", help="Debate the Igbo Elder's reliance on community and effort."):
+    if col_c_i.button("CHALLENGE Igbo Elder's Logic 🛡️", help="Debate the Igbo Elder's reliance on community and effort."):
         st.session_state.challenge_active = True
-        st.session_state.challenge_agent = "Igbo Elder"
+        st.session_state.challenged_elder = "Igbo Elder" 
         st.rerun()
 
-    if col_next.button("Accept Advice & Earn Base Points", help="Complete the cycle without a debate."):
+    if col_next.button("Conclude Session & Earn Base Points", help="Complete the cycle without further debate."):
         st.session_state.ase_score += 10; st.session_state.umunna_score += 10
-        st.info("Points earned for completing the loop! Start a new scenario.")
+        st.info("Points earned for concluding the session! Start a new scenario.")
         st.session_state.advice_given = False; st.session_state.show_reflection = False
         st.session_state.challenge_active = False
+        st.session_state.accepted_elder = None; st.session_state.challenged_elder = None
+        st.session_state.show_challenge_result = False
         st.rerun()
 
 elif st.session_state.challenge_active:
-    # 5. USER CHALLENGE PHASE
-    st.subheader(f"5. Arena: Challenge the **{st.session_state.challenge_agent}**")
+    # 5. USER CHALLENGE PHASE: The Unchallenged Elder Vanishes
+    st.subheader(f"5. Arena: Challenge the **{st.session_state.challenged_elder}**")
+
+    # Logic to handle the 'vanishing' elder using CSS classes
+    yoruba_css_class = ""
+    igbo_css_class = ""
+    if st.session_state.challenged_elder == "Ifá Priest":
+        igbo_css_class = "disappeared-elder" # Igbo Elder disappears
+    else: # Challenged elder is Igbo Elder
+        yoruba_css_class = "disappeared-elder" # Yoruba Elder disappears
+
+    # Display Yoruba Elder (potentially disappeared)
+    st.markdown(f'<div data-testid="stChatMessage-Yoruba" class="{yoruba_css_class}">', unsafe_allow_html=True)
+    with st.chat_message("Yoruba", avatar=YORUBA_ICON_NEUTRAL):
+        st.markdown(f"**⚡ Ifá Priest:** *'{st.session_state.yoruba_advice}'*")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Display Igbo Elder (potentially disappeared)
+    st.markdown(f'<div data-testid="stChatMessage-Igbo" class="{igbo_css_class}">', unsafe_allow_html=True)
+    with st.chat_message("Igbo", avatar=IGBO_ICON_NEUTRAL):
+        st.markdown(f"**🌿 Igbo Elder:** *'{st.session_state.igbo_advice}'*")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("---")
     
-    agent_advice = st.session_state.yoruba_advice if st.session_state.challenge_agent == "Ifá Priest" else st.session_state.igbo_advice
-    agent_name = "Ifá Priest (Yoruba)" if st.session_state.challenge_agent == "Ifá Priest" else "Igbo Elder (Igbo)"
+    agent_advice = st.session_state.yoruba_advice if st.session_state.challenged_elder == "Ifá Priest" else st.session_state.igbo_advice
+    agent_name = "Ifá Priest (Yoruba)" if st.session_state.challenged_elder == "Ifá Priest" else "Igbo Elder (Igbo)"
         
-    st.warning(f"**{agent_name}'s Original Advice:** *{agent_advice}*")
+    st.warning(f"**{agent_name}'s Original Advice (for reference):** *{agent_advice}*")
     
     challenge_input = st.text_area(
         "Enter your logical flaw or counter-argument:", 
         key="challenge_text"
     )
     
-    if st.button("Submit Logical Challenge"):
+    if st.button(f"Submit Logical Challenge to {agent_name}"):
         if challenge_input:
             with st.spinner(f"{agent_name} is preparing a formal defense..."):
                 defense = get_challenge_response(
@@ -236,15 +346,15 @@ elif st.session_state.challenge_active:
         st.markdown("---")
         st.subheader("Challenge Resolution (Fun Verdict)")
         
-        # Scoring logic: rewarding the user for integrating opposing concepts
+        # Scoring logic
         user_input_lower = st.session_state.challenge_input.lower()
         success = False
-        if st.session_state.challenge_agent == "Ifá Priest" and any(word in user_input_lower for word in ["will", "effort", "free will", "community", "umunna", "ethics"]):
+        if st.session_state.challenged_elder == "Ifá Priest" and any(word in user_input_lower for word in ["will", "effort", "free will", "community", "umunna", "ethics"]):
             st.success("Verdict: CHALLENGE SUCCESS! Your argument exposed a weakness in the fate-based model by stressing **human will**.")
             st.session_state.ase_score += 30 
             st.session_state.umunna_score += 10 
             success = True
-        elif st.session_state.challenge_agent == "Igbo Elder" and any(word in user_input_lower for word in ["fate", "ritual", "spiritual", "ori", "cosmic", "destiny"]):
+        elif st.session_state.challenged_elder == "Igbo Elder" and any(word in user_input_lower for word in ["fate", "ritual", "spiritual", "ori", "cosmic", "destiny"]):
             st.success("Verdict: CHALLENGE SUCCESS! Your argument exposed a weakness in the ethics model by stressing **spiritual fate**.")
             st.session_state.umunna_score += 30 
             st.session_state.ase_score += 10 
@@ -253,9 +363,11 @@ elif st.session_state.challenge_active:
             st.error("Verdict: CHALLENGE DEFEATED. The Elder successfully defended their doctrine.")
             st.session_state.ase_score += 5; st.session_state.umunna_score += 5
 
-        if st.button("Continue to New Scenario"):
+        if st.button("Conclude Session & Start a New Scenario"):
             st.session_state.advice_given = False
             st.session_state.show_reflection = False
             st.session_state.challenge_active = False
             st.session_state.show_challenge_result = False
+            st.session_state.accepted_elder = None
+            st.session_state.challenged_elder = None
             st.rerun()
